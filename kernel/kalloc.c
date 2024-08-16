@@ -62,6 +62,23 @@ kfree(void *pa)
   release(&kmem.lock);
 }
 
+
+// Get free memory(bytes).
+void
+get_freemem(uint64 * dst)
+{
+  * dst = 0;
+  struct run *r;
+  acquire(&kmem.lock);
+  r = kmem.freelist;
+  while(r)
+  {
+	  r = r->next;
+	  *dst += PGSIZE;
+  }
+  release(&kmem.lock);
+}
+
 // Allocate one 4096-byte page of physical memory.
 // Returns a pointer that the kernel can use.
 // Returns 0 if the memory cannot be allocated.
