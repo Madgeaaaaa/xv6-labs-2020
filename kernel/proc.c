@@ -30,16 +30,6 @@ procinit(void)
   initlock(&pid_lock, "nextpid");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
-
-      // Allocate a page for the process's kernel stack.
-      // Map it high in memory, followed by an invalid
-      // guard page.
-      char *pa = kalloc();
-      if(pa == 0)
-        panic("kalloc");
-      uint64 va = KSTACK((int) (p - proc));
-      kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
-      p->kstack = va;
   }
   kvminithart();
 }
@@ -120,7 +110,22 @@ found:
     release(&p->lock);
     return 0;
   }
-
+  p->kpt = proc_kpt_init();
+  if(p->kpt == 0)
+  {
+	  freeproc(p);
+	  release(&p->lock);
+	  return 0;
+  }
+  // Allocate a page for the process's kernel stack.
+  // Map it high in memory, followed by an invalid
+  // guard page.
+  char *pa = kalloc();
+  if(pa == 0)
+    panic("kalloc");
+  uint64 va = KSTACK((int) (p - proc));
+  uvmmap(p->kpt, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+  p->kstack = va;
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -136,12 +141,21 @@ found:
 static void
 freeproc(struct proc *p)
 {
+  if(p->kstack)
+  {
+    uvmunmap(p->kpt,p->kstack,1,1);
+    p->kstack = 0;	
+  }
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+
+  if(p->kpt)
+    proc_freekpt(p->kpt);
   p->pagetable = 0;
+  p->kpt = 0;
   p->sz = 0;
   p->pid = 0;
   p->parent = 0;
@@ -151,7 +165,22 @@ freeproc(struct proc *p)
   p->xstate = 0;
   p->state = UNUSED;
 }
-
+void proc_freekpt(pagetable_t kpt)
+{
+	for(int i=0;i<512;i++)
+	{
+		pte_t pte=kpt[i];
+		if(pte&PTE_V)
+		{
+			kpt[i]=0;
+			if((pte&(PTE_R|PTE_W|PTE_X))==0){
+				uint64 child=PTE2PA(pte);
+				proc_freekpt((pagetable_t)child);		
+			}
+		}
+	}
+	kfree((void *)kpt);
+}
 // Create a user page table for a given process,
 // with no user memory, but with trampoline pages.
 pagetable_t
@@ -473,8 +502,11 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-        swtch(&c->context, &p->context);
 
+	
+	proc_inithart(p->kpt);
+        swtch(&c->context, &p->context);
+	kvminithart();
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;

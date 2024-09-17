@@ -5,6 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -47,6 +49,26 @@ kvminit()
   kvmmap(TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
 }
 
+pagetable_t
+proc_kpt_init()
+{
+  pagetable_t kpt=uvmcreate();
+  if(kpt==0) return 0;
+  uvmmap(kpt,UART0,UART0,PGSIZE,PTE_R|PTE_W);
+  uvmmap(kpt,VIRTIO0,VIRTIO0,PGSIZE,PTE_R|PTE_W);
+  uvmmap(kpt,CLINT,CLINT,0x10000,PTE_R|PTE_W);
+  uvmmap(kpt,PLIC,PLIC,0x400000,PTE_R|PTE_W);
+  uvmmap(kpt,KERNBASE,KERNBASE,(uint64)etext-KERNBASE,PTE_R|PTE_X);
+  uvmmap(kpt,(uint64)etext,(uint64)etext,PHYSTOP-(uint64)etext,PTE_R|PTE_W);
+  uvmmap(kpt,TRAMPOLINE,(uint64)trampoline,PGSIZE,PTE_R|PTE_X);
+  return kpt;
+}
+void
+uvmmap(pagetable_t p,uint64 va,uint64 pa,uint64 sz,int perm)
+{
+  if(mappages(p,va,sz,pa,perm)!=0)
+	  panic("uvmmap");
+}
 // Switch h/w page table register to the kernel's page table,
 // and enable paging.
 void
@@ -55,7 +77,13 @@ kvminithart()
   w_satp(MAKE_SATP(kernel_pagetable));
   sfence_vma();
 }
+void 
+proc_inithart(pagetable_t kpt)
+{
+	w_satp(MAKE_SATP(kpt));
+	sfence_vma();
 
+}
 // Return the address of the PTE in page table pagetable
 // that corresponds to virtual address va.  If alloc!=0,
 // create any required page-table pages.
@@ -132,7 +160,7 @@ kvmpa(uint64 va)
   pte_t *pte;
   uint64 pa;
   
-  pte = walk(kernel_pagetable, va, 0);
+  pte = walk(myproc()->kpt, va, 0);
   if(pte == 0)
     panic("kvmpa");
   if((*pte & PTE_V) == 0)
