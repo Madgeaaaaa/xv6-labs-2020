@@ -126,7 +126,7 @@ found:
   uint64 va = KSTACK((int) (p - proc));
   uvmmap(p->kpt, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   p->kstack = va;
-  // Set up new context to start executing at forkret,
+  // Set up new context to start executing at forkre,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
@@ -253,7 +253,7 @@ userinit(void)
   // prepare for the very first "return" from kernel to user.
   p->trapframe->epc = 0;      // user program counter
   p->trapframe->sp = PGSIZE;  // user stack pointer
-
+  u2kvmcopy(p->pagetable, p->kpt, 0, p->sz);
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
@@ -272,9 +272,14 @@ growproc(int n)
 
   sz = p->sz;
   if(n > 0){
+    if(PGROUNDUP(sz+n)>=PLIC)
+    {
+	    return -1;
+    }
     if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
       return -1;
     }
+    u2kvmcopy(p->pagetable,p->kpt,sz-n,sz);
   } else if(n < 0){
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
@@ -303,6 +308,8 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+
+  u2kvmcopy(np->pagetable,np->kpt,0,np->sz);
 
   np->parent = p;
 
