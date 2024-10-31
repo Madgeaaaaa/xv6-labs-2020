@@ -29,7 +29,7 @@ uservec:
         csrrw a0, sscratch, a0
 
         # save the user registers in TRAPFRAME
-        sd ra, 40(a0)
+        sd ra, 40(a0) # sd 是 “store doubleword”的缩写，用于将一个 64 位（即双字）数据从寄存器存储到内存中。存储到内存a0+40中
         sd sp, 48(a0)
         sd gp, 56(a0)
         sd tp, 64(a0)
@@ -61,11 +61,11 @@ uservec:
         sd t6, 280(a0)
 
 	# save the user a0 in p->trapframe->a0
-        csrr t0, sscratch
+        csrr t0, sscratch # 将a0读取到t0
         sd t0, 112(a0)
 
         # restore kernel stack pointer from p->trapframe->kernel_sp
-        ld sp, 8(a0)
+        ld sp, 8(a0)   # 将内存中a0+8的64位数据存储到内存栈指针中
 
         # make tp hold the current hartid, from p->trapframe->kernel_hartid
         ld tp, 32(a0)
@@ -88,13 +88,13 @@ uservec:
 userret:
         # userret(TRAPFRAME, pagetable)
         # switch from kernel to user.
-        # usertrapret() calls here.
+        # usertrapret() calls here.# a1和a0保存参数列表
         # a0: TRAPFRAME, in user page table.
         # a1: user page table, for satp.
 
         # switch to the user page table.
         csrw satp, a1
-        sfence.vma zero, zero
+        sfence.vma zero, zero # 用于刷新页表项缓存
 
         # put the saved user a0 in sscratch, so we
         # can swap it with our a0 (TRAPFRAME) in the last step.
