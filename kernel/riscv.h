@@ -319,12 +319,21 @@ sfence_vma()
   asm volatile("sfence.vma zero, zero");
 }
 
+//get the value of register
+static inline uint64
+r_fp()
+{
+  uint64 x;
+  asm volatile("mv %0, s0" : "=r" (x) );
+  return x;
+}
+
 
 #define PGSIZE 4096 // bytes per page
 #define PGSHIFT 12  // bits of offset within a page
 
-#define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
-#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
+#define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))//下一页边界
+#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))//上一页边界
 
 #define PTE_V (1L << 0) // valid
 #define PTE_R (1L << 1)

@@ -78,6 +78,38 @@ struct trapframe {
   /* 264 */ uint64 t4;
   /* 272 */ uint64 t5;
   /* 280 */ uint64 t6;
+            uint64 sepc;           // saved user program counter
+            uint64 sra;
+   uint64 ssp;
+   uint64 sgp;
+   uint64 stp;
+   uint64 st0;
+   uint64 st1;
+   uint64 st2;
+   uint64 ss0;
+   uint64 ss1;
+   uint64 sa0;
+   uint64 sa1;
+   uint64 sa2;
+   uint64 sa3;
+   uint64 sa4;
+   uint64 sa5;
+   uint64 sa6;
+   uint64 sa7;
+   uint64 ss2;
+   uint64 ss3;
+   uint64 ss4;
+   uint64 ss5;
+   uint64 ss6;
+   uint64 ss7;
+   uint64 ss8;
+   uint64 ss9;
+   uint64 ss10;
+   uint64 ss11;
+   uint64 st3;
+   uint64 st4;
+   uint64 st5;
+   uint64 st6;
 };
 
 enum procstate { UNUSED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
@@ -94,6 +126,7 @@ struct proc {
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
 
+
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack
   uint64 sz;                   // Size of process memory (bytes)
@@ -103,4 +136,13 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  //Alarm
+  int alarm_interval;          //报警间隔
+  uint64 handler;     //报警处理函数
+  // void (*handler)();     // 报警处理函数
+  int ticks_count;             //两次警报间的滴答计数
+  int is_alarming;                    // 是否正在执行告警处理函数
+  // struct trapframe* alarm_trapframe;  // 告警陷阱帧
+
 };

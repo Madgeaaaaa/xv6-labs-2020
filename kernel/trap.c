@@ -67,6 +67,50 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+    if(which_dev == 2)
+    {
+      if(++p->ticks_count==p->alarm_interval && p->is_alarming==0  && p->alarm_interval!=0){
+        // memmove(p->alarm_trapframe,p->trapframe,sizeof(p->trapframe));
+        p->trapframe->sepc = p->trapframe->epc;
+        p->trapframe->sra = p->trapframe->ra;
+        p->trapframe->ssp = p->trapframe->sp;
+        p->trapframe->sgp = p->trapframe->gp;
+        p->trapframe->stp = p->trapframe->tp;
+        p->trapframe->st0 = p->trapframe->t0;
+        p->trapframe->st1 = p->trapframe->t1;
+        p->trapframe->st2 = p->trapframe->t2;
+        p->trapframe->ss0 = p->trapframe->s0;
+        p->trapframe->ss1 = p->trapframe->s1;
+        p->trapframe->sa0 = p->trapframe->a0;
+        p->trapframe->sa1 = p->trapframe->a1;
+        p->trapframe->sa2 = p->trapframe->a2;
+        p->trapframe->sa3 = p->trapframe->a3;
+        p->trapframe->sa4 = p->trapframe->a4;
+        p->trapframe->sa5 = p->trapframe->a5;
+        p->trapframe->sa6 = p->trapframe->a6;
+        p->trapframe->sa7 = p->trapframe->a7;
+        p->trapframe->ss2 = p->trapframe->s2;
+        p->trapframe->ss3 = p->trapframe->s3;
+        p->trapframe->ss4 = p->trapframe->s4;
+        p->trapframe->ss5 = p->trapframe->s5;
+        p->trapframe->ss6 = p->trapframe->s6;
+        p->trapframe->ss7 = p->trapframe->s7;
+        p->trapframe->ss8 = p->trapframe->s8;
+        p->trapframe->ss9 = p->trapframe->s9;
+        p->trapframe->ss10 = p->trapframe->s10;
+        p->trapframe->ss11 = p->trapframe->s11;
+        p->trapframe->st3 = p->trapframe->t3;
+        p->trapframe->st4 = p->trapframe->t4;
+        p->trapframe->st5 = p->trapframe->t5;
+        p->trapframe->st6 = p->trapframe->t6;
+
+        // printf("testusertrap-copy\n");
+        p->trapframe->epc = p->handler;
+        p->ticks_count = 0;
+        p->is_alarming=1;
+      }
+      yield();
+    }
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
@@ -76,9 +120,20 @@ usertrap(void)
   if(p->killed)
     exit(-1);
 
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
+  // // give up the CPU if this is a timer interrupt.
+  // if(which_dev == 2)
+  //   yield();
+  // if(which_dev == 2) {
+  //   if(p->alarm_interval != 0 && ++p->ticks_count == p->alarm_interval && p->is_alarming == 0) {
+  //   // 保存寄存器内容
+  //     memmove(p->alarm_trapframe, p->trapframe, sizeof(struct trapframe));
+  //   // 更改陷阱帧中保留的程序计数器，注意一定要在保存寄存器内容后再设置epc
+  //     p->trapframe->epc = (uint64)p->handler;
+  //     p->ticks_count = 0;
+  //     p->is_alarming = 1;
+  //   }
+  //   yield();
+  // }
 
   usertrapret();
 }
@@ -137,6 +192,7 @@ kerneltrap()
   uint64 sepc = r_sepc();
   uint64 sstatus = r_sstatus();
   uint64 scause = r_scause();
+
   
   if((sstatus & SSTATUS_SPP) == 0)
     panic("kerneltrap: not from supervisor mode");
